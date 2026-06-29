@@ -21,8 +21,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
         
-        // Bypass auth routes and registration
-        if (path.startsWith("/api/auth") || path.startsWith("/eureka") || path.equals("/api/customers/register")) {
+        // Bypass auth routes, registration, and public car viewing
+        if (path.startsWith("/api/auth") || path.startsWith("/eureka") || path.equals("/api/customers/register")
+                || (path.equals("/api/cars") && exchange.getRequest().getMethod().name().equals("GET"))) {
             return chain.filter(exchange);
         }
 
