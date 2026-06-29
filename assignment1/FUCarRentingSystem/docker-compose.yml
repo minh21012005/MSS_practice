@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - ./create_databases.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - fucar_network
+
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+    networks:
+      - fucar_network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFERIPADDRESS=true
+    depends_on:
+      - discovery-server
+    networks:
+      - fucar_network
+
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    ports:
+      - "8081:8081"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFERIPADDRESS=true
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres_db:5432/customer_db
+    depends_on:
+      - postgres
+      - discovery-server
+    networks:
+      - fucar_network
+
+  car-service:
+    build: ./car-service
+    container_name: car-service
+    ports:
+      - "8082:8082"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFERIPADDRESS=true
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres_db:5432/car_db
+    depends_on:
+      - postgres
+      - discovery-server
+    networks:
+      - fucar_network
+
+  renting-service:
+    build: ./renting-service
+    container_name: renting-service
+    ports:
+      - "8083:8083"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFERIPADDRESS=true
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres_db:5432/rental_db
+    depends_on:
+      - postgres
+      - discovery-server
+    networks:
+      - fucar_network
+
+networks:
+  fucar_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
