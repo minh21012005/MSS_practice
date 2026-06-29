@@ -44,18 +44,35 @@ public class RentingController {
 
         request.setCustomerId(customer.getCustomerId());
         request.setRentingDate(new Date());
+        request.setRentingStatus(0); // 0 = PENDING (Saga Start)
         
-        // Temporarily null details to save transaction first
         List<RentingDetail> details = request.getDetails();
         request.setDetails(null);
         RentingTransaction saved = transactionRepository.save(request);
 
         BigDecimal total = BigDecimal.ZERO;
+        java.util.List<Integer> reservedCarIds = new java.util.ArrayList<>();
+        boolean sagaSuccess = true;
         
         if (details != null && !details.isEmpty()) {
             for (RentingDetail detail : details) {
                 CarDTO car = carServiceClient.getCarById(detail.getCarId());
-                if (car == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                if (car == null || car.getCarStatus() != 1) { // 1 = Available
+                    sagaSuccess = false;
+                    break;
+                }
+                
+                try {
+                    ResponseEntity<Void> res = carServiceClient.reserveCar(car.getCarId());
+                    if (!res.getStatusCode().is2xxSuccessful()) {
+                        sagaSuccess = false;
+                        break;
+                    }
+                    reservedCarIds.add(car.getCarId());
+                } catch (Exception e) {
+                    sagaSuccess = false;
+                    break;
+                }
                 
                 long days = ChronoUnit.DAYS.between(
                     detail.getStartDate().toInstant(), 
@@ -70,13 +87,38 @@ public class RentingController {
                 detail.setRentingTransactionId(saved.getRentingTransactionId());
                 detail.setTransaction(saved);
             }
-            saved.setDetails(details);
         }
         
+        if (!sagaSuccess) {
+            // SAGA ROLLBACK: COMPENSATING TRANSACTIONS
+            for (Integer cid : reservedCarIds) {
+                try {
+                    carServiceClient.cancelReserveCar(cid);
+                } catch (Exception ex) {
+                    // Ignore rollback errors in this simple implementation
+                }
+            }
+            saved.setRentingStatus(2); // 2 = FAILED
+            transactionRepository.save(saved);
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
+        saved.setDetails(details);
         saved.setTotalPrice(total);
-        saved.setRentingStatus(1); // 1 = Active/Pending
+        saved.setRentingStatus(1); // 1 = CONFIRMED
         
-        saved = transactionRepository.save(saved);
+        try {
+            saved = transactionRepository.save(saved);
+        } catch (Exception e) {
+            // SAGA ROLLBACK if final DB commit fails
+            for (Integer cid : reservedCarIds) {
+                try {
+                    carServiceClient.cancelReserveCar(cid);
+                } catch (Exception ex) {}
+            }
+            throw e;
+        }
+        
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 

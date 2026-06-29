@@ -8,4 +8,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface CarServiceClient {
     @GetMapping("/{id}")
     CarDTO getCarById(@PathVariable("id") Integer id);
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/reserve")
+    org.springframework.http.ResponseEntity<Void> reserveCar(@PathVariable("id") Integer id);
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/cancel-reserve")
+    org.springframework.http.ResponseEntity<Void> cancelReserveCar(@PathVariable("id") Integer id);
 }

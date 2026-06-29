@@ -6,5 +6,7 @@ public class CarDTO {
     public Integer getCarId() { return carId; }
     public void setCarId(Integer carId) { this.carId = carId; }
     public BigDecimal getCarRentingPricePerDay() { return carRentingPricePerDay; }
-    public void setCarRentingPricePerDay(BigDecimal carRentingPricePerDay) { this.carRentingPricePerDay = carRentingPricePerDay; }
+    private Integer carStatus;
+    public Integer getCarStatus() { return carStatus; }
+    public void setCarStatus(Integer carStatus) { this.carStatus = carStatus; }
 }

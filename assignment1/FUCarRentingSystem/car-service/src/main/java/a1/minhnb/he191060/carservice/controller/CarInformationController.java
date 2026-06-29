@@ -61,4 +61,23 @@ public class CarInformationController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @PutMapping("/{id}/reserve")
+    public ResponseEntity<Void> reserveCar(@PathVariable Integer id) {
+        return carInformationRepository.findById(id).map(car -> {
+            if (car.getCarStatus() != 1) return ResponseEntity.status(HttpStatus.CONFLICT).<Void>build();
+            car.setCarStatus(2); // 2 = Rented
+            carInformationRepository.save(car);
+            return ResponseEntity.ok().<Void>build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}/cancel-reserve")
+    public ResponseEntity<Void> cancelReserveCar(@PathVariable Integer id) {
+        return carInformationRepository.findById(id).map(car -> {
+            car.setCarStatus(1); // 1 = Available
+            carInformationRepository.save(car);
+            return ResponseEntity.ok().<Void>build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
 }
